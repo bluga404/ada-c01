@@ -1,104 +1,214 @@
+//
+//  ContentView.swift
+//  egg-timer-c01
+//
+//  Created by Academy on 03/03/26.
+//
+
 import SwiftUI
-import UserNotifications
+import Combine
 
 struct ContentView: View {
-    
-    @State private var selectedMinutes = 1
-    @State private var selectedSeconds = 0
-    
-    @State private var timeRemaining: TimeInterval = 60
-    @State private var timer: Timer?
-    @State private var isRunning = false
+    @State private var selectedOption: String? = nil
+    @State private var selectedLevel: String? = nil
     
     var body: some View {
-        VStack(spacing: 30) {
-            
-            Text(formatTime(timeRemaining))
-                .font(.system(size: 48, weight: .bold, design: .monospaced))
-            
-            // Picker muncul hanya kalau timer belum jalan
-            if !isRunning {
-                HStack {
-                    Picker("Minutes", selection: $selectedMinutes) {
-                        ForEach(0..<60) { minute in
-                            Text("\(minute) min").tag(minute)
-                        }
-                    }
-                    .pickerStyle(.wheel)
-                    .frame(width: 120, height: 120)
+        NavigationStack {
+            VStack(spacing: 25) {
+                
+                Text("Kematangan Air")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                // Kondisi Air
+                VStack(alignment: .leading, spacing: 15) {
+                    Text("Kondisi Air")
+                        .font(.headline)
                     
-                    Picker("Seconds", selection: $selectedSeconds) {
-                        ForEach(0..<60) { second in
-                            Text("\(second) sec").tag(second)
+                    HStack(spacing: 20) {
+                        OptionCard(
+                            title: "Mentah",
+                            icon: "drop.fill",
+                            color: .blue,
+                            isSelected: selectedOption == "Mentah"
+                        ) {
+                            selectedOption = "Mentah"
+                        }
+                        
+                        OptionCard(
+                            title: "Mendidih",
+                            icon: "flame.fill",
+                            color: .orange,
+                            isSelected: selectedOption == "Mendidih"
+                        ) {
+                            selectedOption = "Mendidih"
                         }
                     }
-                    .pickerStyle(.wheel)
-                    .frame(width: 120, height: 120)
                 }
-            }
-            
-            HStack(spacing: 30) {
                 
-                Button(isRunning ? "Pause" : "Start") {
-                    if isRunning {
-                        pauseTimer()
-                    } else {
-                        startTimer()
+                // Tingkat Kematangan
+                VStack(alignment: .leading, spacing: 15) {
+                    Text("Tingkat Kematangan")
+                        .font(.headline)
+                    
+                    HStack(spacing: 15) {
+                        LevelCard(
+                            title: "Setengah",
+                            color: .yellow,
+                            isSelected: selectedLevel == "Setengah"
+                        ) {
+                            selectedLevel = "Setengah"
+                        }
+                        
+                        LevelCard(
+                            title: "Matang",
+                            color: .orange,
+                            isSelected: selectedLevel == "Matang"
+                        ) {
+                            selectedLevel = "Matang"
+                        }
+                        
+                        LevelCard(
+                            title: "Sempurna",
+                            color: .red,
+                            isSelected: selectedLevel == "Sempurna"
+                        ) {
+                            selectedLevel = "Sempurna"
+                        }
                     }
                 }
-                .frame(width: 100, height: 50)
-                .background(isRunning ? Color.orange : Color.green)
-                .foregroundColor(.white)
-                .cornerRadius(10)
                 
-                Button("Reset") {
-                    resetTimer()
+                Spacer()
+                
+                // Start Button
+                NavigationLink(destination: TimerView(
+                    selectedOption: selectedOption ?? "Mentah",
+                    selectedLevel: selectedLevel ?? "Setengah"
+                )) {
+                    Text("Start")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(width: 200, height: 50)
+                        .background((selectedOption != nil && selectedLevel != nil) ? Color.blue : Color.gray)
+                        .cornerRadius(15)
                 }
-                .frame(width: 100, height: 50)
-                .background(Color.red)
-                .foregroundColor(.white)
-                .cornerRadius(10)
+                .disabled(selectedOption == nil || selectedLevel == nil)
+                
+                Spacer()
             }
+            .padding()
         }
-        .padding()
-    }
-    
-    func startTimer() {
-        if timeRemaining <= 0 {
-            timeRemaining = TimeInterval(selectedMinutes * 60 + selectedSeconds)
-        }
-        
-        guard timeRemaining > 0 else { return }
-        
-        isRunning = true
-        
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if timeRemaining > 0 {
-                timeRemaining -= 1
-            } else {
-                pauseTimer()
-            }
-        }
-    }
-    
-    func pauseTimer() {
-        isRunning = false
-        timer?.invalidate()
-        timer = nil
-    }
-    
-    func resetTimer() {
-        pauseTimer()
-        timeRemaining = TimeInterval(selectedMinutes * 60 + selectedSeconds)
-    }
-    
-    func formatTime(_ time: TimeInterval) -> String {
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
-        return String(format: "%02d:%02d", minutes, seconds)
     }
 }
 
-#Preview {
-    ContentView()
+
+// MARK: - Timer Screen
+struct TimerView: View {
+    var selectedOption: String
+    var selectedLevel: String
+    
+    @State private var countdownTimer: Int = 5
+    @State private var timerRunning = false
+    
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    
+    var body: some View {
+        VStack(spacing: 30) {
+            Text("\(countdownTimer)")
+                .font(.system(size: 60, weight: .bold))
+            
+            HStack(spacing: 30) {
+                Button(timerRunning ? "Pause" : "Start") {
+                    timerRunning.toggle()
+                }
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.blue)
+                .cornerRadius(15)
+                
+                Button("Reset") {
+                    countdownTimer = initialTime()
+                    timerRunning = false
+                }
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.red)
+                .cornerRadius(15)
+            }
+        }
+        .onAppear {
+            countdownTimer = initialTime()
+        }
+        .onReceive(timer) { _ in
+            if countdownTimer > 0 && timerRunning {
+                countdownTimer -= 1
+            } else {
+                timerRunning = false
+            }
+        }
+    }
+    
+    // Set timer based on pilihan tingkat kematangan
+    func initialTime() -> Int {
+        switch selectedLevel {
+        case "Setengah": return 5
+        case "Matang": return 10
+        case "Sempurna": return 15
+        default: return 5
+        }
+    }
+}
+
+
+// MARK: - Reusable Components
+struct OptionCard: View {
+    var title: String
+    var icon: String
+    var color: Color
+    var isSelected: Bool
+    var action: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 28))
+            Text(title)
+                .font(.headline)
+        }
+        .foregroundColor(.white)
+        .frame(width: 140, height: 100)
+        .background(isSelected ? color : Color.gray.opacity(0.4))
+        .cornerRadius(20)
+        .shadow(radius: 5)
+        .scaleEffect(isSelected ? 1.05 : 1.0)
+        .animation(.easeInOut, value: isSelected)
+        .onTapGesture { action() }
+    }
+}
+
+struct LevelCard: View {
+    var title: String
+    var color: Color
+    var isSelected: Bool
+    var action: () -> Void
+    
+    var body: some View {
+        Text(title)
+            .font(.subheadline)
+            .fontWeight(.semibold)
+            .foregroundColor(.white)
+            .frame(width: 100, height: 50)
+            .background(isSelected ? color : Color.gray.opacity(0.4))
+            .cornerRadius(15)
+            .shadow(radius: 3)
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+            .animation(.easeInOut, value: isSelected)
+            .onTapGesture { action() }
+    }
+}
+
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
 }
