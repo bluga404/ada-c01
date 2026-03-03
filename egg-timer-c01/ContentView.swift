@@ -4,24 +4,20 @@ import AVFoundation
 
 struct ContentView: View {
     
+    // MARK: - ENUMS
+    
     enum WaterType: String, CaseIterable {
-        case airBiasa = "Air Biasa"
-        case airMendidih = "Air Mendidih"
+        case airBiasa
+        case airMendidih
     }
     
     enum EggDoneness: String, CaseIterable {
-        case soft = "Setengah Matang"
-        case medium = "Matang"
-        case hard = "Matang Sempurna"
-        
-        var icon: String {
-            switch self {
-            case .soft: return "🥚"
-            case .medium: return "🍳"
-            case .hard: return "🟡"
-            }
-        }
+        case soft
+        case medium
+        case hard
     }
+    
+    // MARK: - STATES
     
     @State private var selectedWater: WaterType = .airBiasa
     @State private var selectedDoneness: EggDoneness = .soft
@@ -29,11 +25,13 @@ struct ContentView: View {
     @State private var isRunning = false
     @State private var timer: Timer?
     
+    // MARK: - BOILING TIME LOGIC (SAMA SEPERTI SEBELUMNYA)
+    
     var boilingTime: Int {
         switch selectedWater {
         case .airBiasa:
             switch selectedDoneness {
-            case .soft: return 9 * 60
+            case .soft: return 1 * 6
             case .medium: return 11 * 60
             case .hard: return 14 * 60
             }
@@ -52,110 +50,237 @@ struct ContentView: View {
         return String(format: "%02d:%02d", minutes, seconds)
     }
     
+    // MARK: - BODY
+    
     var body: some View {
         ZStack {
-            Color.orange.opacity(0.1)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 25) {
-                
-                Text("Set Boiled Details")
-                    .font(.title2)
-                    .bold()
-                
-                // MARK: - Water Type
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Egg Temperature")
-                        .font(.headline)
-                    
-                    Picker("", selection: $selectedWater) {
-                        ForEach(WaterType.allCases, id: \.self) {
-                            Text($0.rawValue)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-                
-                // MARK: - Doneness
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Egg Boiled Type")
-                        .font(.headline)
-                    
-                    HStack(spacing: 15) {
-                        ForEach(EggDoneness.allCases, id: \.self) { level in
-                            VStack(spacing: 8) {
-                                Text(level.icon)
-                                    .font(.largeTitle)
-                                
-                                Text(level.rawValue)
-                                    .font(.caption)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                selectedDoneness == level ?
-                                Color.orange.opacity(0.3) :
-                                Color.white
-                            )
-                            .cornerRadius(15)
-                            .shadow(color: .black.opacity(0.05), radius: 5)
-                            .onTapGesture {
-                                selectedDoneness = level
-                            }
-                        }
-                    }
-                }
-                
-                Spacer()
-                
-                // MARK: - Timer Display
-                VStack(spacing: 8) {
-                    Text("Estimated Boiled Time")
-                        .font(.headline)
-                    
-                    Text(isRunning ? formattedTime :
-                         "\(boilingTime / 60) MIN")
-                        .font(.system(size: 40, weight: .bold))
-                        .foregroundColor(.orange)
-                }
-                
-                // MARK: - Start Button
-                Button(action: startTimer) {
-                    Text(isRunning ? "Running..." : "Start")
-                        .bold()
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(isRunning ? Color.gray : Color.orange)
-                        .foregroundColor(.white)
-                        .cornerRadius(15)
-                }
-                .disabled(isRunning)
-                
+            if isRunning {
+                timerView
+            } else {
+                setupView
             }
-            .padding()
-            .background(Color.white)
-            .cornerRadius(25)
-            .padding()
         }
         .onAppear {
             requestNotificationPermission()
         }
     }
+}
+
+////////////////////////////////////////////////////////////
+// MARK: - SETUP VIEW
+////////////////////////////////////////////////////////////
+
+extension ContentView {
     
-    func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
-            if granted {
-                print("Notification permission granted")
+    var setupView: some View {
+        ZStack(alignment: .top) {
+            
+            // Header Yellow
+            Color.yellow
+                .ignoresSafeArea()
+                .frame(height: 220)
+            
+            VStack(alignment: .leading) {
+                Spacer().frame(height: 60)
+                
+                Text("Set boiled details")
+                    .font(.title)
+                    .bold()
+                    .foregroundColor(.white)
+                
+                Text("Prepare eggs as you like!")
+                    .foregroundColor(.white.opacity(0.9))
+                
+                Spacer()
+            }
+            .padding(.horizontal)
+            
+            VStack(spacing: 25) {
+                
+                Spacer().frame(height: 180)
+                
+                VStack(alignment: .leading, spacing: 25) {
+                    
+                    // Water condition
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Water condition")
+                            .font(.headline)
+                        
+                        HStack(spacing: 15) {
+                            waterButton(.airBiasa, title: "Air Mentah")
+                            waterButton(.airMendidih, title: "Air Mendidih")
+                        }
+                    }
+                    
+                    // Egg Type
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Egg boiled type")
+                            .font(.headline)
+                        
+                        HStack(spacing: 15) {
+                            eggCard(.soft, title: "Soft")
+                            eggCard(.medium, title: "Medium")
+                            eggCard(.hard, title: "Hard")
+                        }
+                    }
+                }
+                .padding()
+                .background(Color.white)
+                .cornerRadius(30)
+                .shadow(radius: 5)
+                .padding(.horizontal)
+                
+                Spacer()
+                
+                bottomBar
             }
         }
     }
+}
+
+////////////////////////////////////////////////////////////
+// MARK: - TIMER VIEW
+////////////////////////////////////////////////////////////
+
+extension ContentView {
+    
+    var timerView: some View {
+        VStack(spacing: 40) {
+            
+            Spacer()
+            
+            Circle()
+                .fill(Color.white)
+                .frame(width: 200, height: 200)
+                .shadow(radius: 10)
+            
+            Text(formattedTime)
+                .font(.system(size: 60, weight: .bold))
+            
+            Text("Egg still cooking")
+                .foregroundColor(.gray)
+            
+            Spacer()
+            
+            Button {
+                timer?.invalidate()
+                isRunning = false
+            } label: {
+                Image(systemName: "pause.fill")
+                    .foregroundColor(.white)
+                    .frame(width: 70, height: 70)
+                    .background(Color.yellow)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .shadow(radius: 5)
+            }
+            
+            Spacer()
+        }
+        .background(Color.gray.opacity(0.05))
+        .ignoresSafeArea()
+    }
+}
+
+////////////////////////////////////////////////////////////
+// MARK: - COMPONENTS
+////////////////////////////////////////////////////////////
+
+extension ContentView {
+    
+    func waterButton(_ type: WaterType, title: String) -> some View {
+        Button {
+            selectedWater = type
+        } label: {
+            Text(title)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(
+                    selectedWater == type ?
+                    Color.orange.opacity(0.2) :
+                    Color.gray.opacity(0.1)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15)
+                        .stroke(
+                            selectedWater == type ? Color.orange : Color.gray.opacity(0.3),
+                            lineWidth: 1.5
+                        )
+                )
+                .cornerRadius(15)
+        }
+    }
+    
+    func eggCard(_ level: EggDoneness, title: String) -> some View {
+        Button {
+            selectedDoneness = level
+        } label: {
+            VStack(spacing: 10) {
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 50, height: 50)
+                    .shadow(radius: 4)
+                
+                Text(title)
+                    .bold()
+                
+                Text("boiled")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(
+                        selectedDoneness == level ? Color.orange : Color.gray.opacity(0.3),
+                        lineWidth: 2
+                    )
+            )
+            .cornerRadius(20)
+        }
+    }
+    
+    var bottomBar: some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text("Estimated boiled time")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                Text("\(boilingTime / 60):00 Min")
+                    .font(.title2)
+                    .bold()
+            }
+            
+            Spacer()
+            
+            Button(action: startTimer) {
+                Image(systemName: "play.fill")
+                    .foregroundColor(.white)
+                    .frame(width: 60, height: 60)
+                    .background(Color.yellow)
+                    .clipShape(RoundedRectangle(cornerRadius: 15))
+                    .shadow(radius: 4)
+            }
+        }
+        .padding()
+        .background(Color.white)
+    }
+}
+
+////////////////////////////////////////////////////////////
+// MARK: - TIMER LOGIC + NOTIFICATION
+////////////////////////////////////////////////////////////
+
+extension ContentView {
     
     func startTimer() {
         timeRemaining = boilingTime
         isRunning = true
         
         timer?.invalidate()
+        
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             if timeRemaining > 0 {
                 timeRemaining -= 1
@@ -168,11 +293,15 @@ struct ContentView: View {
         }
     }
     
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+    
     func scheduleNotification() {
         let content = UNMutableNotificationContent()
         content.title = "Timer Selesai ⏰"
         content.body = "Telur kamu sudah matang!"
-        content.sound = .default   // pakai sound bawaan iOS
+        content.sound = .default
         
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         
@@ -187,7 +316,6 @@ struct ContentView: View {
     
     func playAlarmSound() {
         AudioServicesPlaySystemSound(1005)
-        // 1005 = sound bawaan iOS (mirip alarm/alert)
     }
 }
 
