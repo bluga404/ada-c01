@@ -40,26 +40,24 @@ struct ContentView: View {
     @State private var isRunning = false
     @State private var timer: Timer?
     
-    // Tambahkan variable ini di bagian // MARK: - STATES
     @State private var audioPlayer: AVAudioPlayer?
-    @State private var isAlarmActive = false // Menandai alarm sedang bunyi
-    @State private var expiryDate: Date?     // Untuk background timer logic
+    @State private var isAlarmActive = false
+    @State private var expiryDate: Date?
+    
+    @Environment(\.scenePhase) private var scenePhase
     
     // MARK: - BOILING TIME
     
     var boilingTime: Int {
-        
         var baseTime: Int
         
         switch selectedWater {
-            
         case .airBiasa:
             switch selectedDoneness {
-            case .soft: baseTime = 6 * 1
+            case .soft: baseTime = 8 * 1
             case .medium: baseTime = 11 * 60
             case .hard: baseTime = 14 * 60
             }
-            
         case .airMendidih:
             switch selectedDoneness {
             case .soft: baseTime = 6 * 60
@@ -69,7 +67,7 @@ struct ContentView: View {
         }
         
         if selectedEggType == .puyuh {
-            baseTime = baseTime / 2
+            baseTime /= 2
         }
         
         return baseTime
@@ -84,31 +82,22 @@ struct ContentView: View {
     // MARK: - BODY
     
     var body: some View {
-            ZStack {
-                if isRunning {
-                    timerView
-                } else {
-                    setupView
-                }
-            }
-            .onAppear {
-                requestNotificationPermission()
-            }
-            // Logika saat aplikasi kembali aktif dari Background
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                if isRunning && !isAlarmActive {
-                    if let expiry = expiryDate {
-                        let diff = Int(expiry.timeIntervalSinceNow)
-                        if diff <= 0 {
-                            timeRemaining = 0
-                            timerFinished()
-                        } else {
-                            timeRemaining = diff
-                        }
-                    }
-                }
+        ZStack {
+            if isRunning {
+                timerView
+            } else {
+                setupView
             }
         }
+        .onAppear {
+            requestNotificationPermission()
+        }
+        .onChange(of: scenePhase) {
+            if scenePhase == .active {
+                syncWithRealTime()
+            }
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////
@@ -118,7 +107,6 @@ struct ContentView: View {
 extension ContentView {
     
     var setupView: some View {
-        
         ZStack(alignment: .topTrailing) {
             
             Color.yellow
@@ -140,8 +128,6 @@ extension ContentView {
                             .foregroundColor(.gray)
                     }
                     
-                    // Egg Type
-                    
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Egg Type")
                             .font(.headline)
@@ -152,8 +138,6 @@ extension ContentView {
                         }
                     }
                     
-                    // Water Condition
-                    
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Water condition")
                             .font(.headline)
@@ -163,8 +147,6 @@ extension ContentView {
                             waterButton(.airMendidih, title: "Air Mendidih")
                         }
                     }
-                    
-                    // Egg Doneness
                     
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Egg boiled type")
@@ -187,8 +169,6 @@ extension ContentView {
                 
                 bottomBar
             }
-            
-            // LOGO DI SUDUT KANAN ATAS
             
             Image("Telur")
                 .resizable()
@@ -235,9 +215,7 @@ extension ContentView {
             
             Spacer()
             
-            // TOMBOL DINAMIS: PAUSE ATAU STOP
             if isAlarmActive {
-                // TOMBOL STOP (Hanya muncul saat alarm bunyi)
                 Button(action: stopAlarm) {
                     HStack {
                         Image(systemName: "stop.fill")
@@ -251,7 +229,6 @@ extension ContentView {
                     .shadow(radius: 5)
                 }
             } else {
-                // TOMBOL PAUSE (Muncul saat timer jalan)
                 Button {
                     timer?.invalidate()
                     isRunning = false
@@ -285,17 +262,10 @@ extension ContentView {
             Text(type.rawValue)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(
-                    selectedEggType == type ?
-                    Color.orange.opacity(0.2) :
-                    Color.gray.opacity(0.1)
-                )
+                .background(selectedEggType == type ? Color.orange.opacity(0.2) : Color.gray.opacity(0.1))
                 .overlay(
                     RoundedRectangle(cornerRadius: 15)
-                        .stroke(
-                            selectedEggType == type ? Color.orange : Color.gray.opacity(0.3),
-                            lineWidth: 1.5
-                        )
+                        .stroke(selectedEggType == type ? Color.orange : Color.gray.opacity(0.3), lineWidth: 1.5)
                 )
                 .cornerRadius(15)
         }
@@ -308,17 +278,10 @@ extension ContentView {
             Text(title)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(
-                    selectedWater == type ?
-                    Color.orange.opacity(0.2) :
-                    Color.gray.opacity(0.1)
-                )
+                .background(selectedWater == type ? Color.orange.opacity(0.2) : Color.gray.opacity(0.1))
                 .overlay(
                     RoundedRectangle(cornerRadius: 15)
-                        .stroke(
-                            selectedWater == type ? Color.orange : Color.gray.opacity(0.3),
-                            lineWidth: 1.5
-                        )
+                        .stroke(selectedWater == type ? Color.orange : Color.gray.opacity(0.3), lineWidth: 1.5)
                 )
                 .cornerRadius(15)
         }
@@ -329,14 +292,12 @@ extension ContentView {
             selectedDoneness = level
         } label: {
             VStack(spacing: 10) {
-                
                 Image(level.imageName)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 60, height: 60)
                 
-                Text(title)
-                    .bold()
+                Text(title).bold()
                 
                 Text("boiled")
                     .font(.caption)
@@ -347,10 +308,7 @@ extension ContentView {
             .background(Color.white)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(
-                        selectedDoneness == level ? Color.orange : Color.gray.opacity(0.3),
-                        lineWidth: 2
-                    )
+                    .stroke(selectedDoneness == level ? Color.orange : Color.gray.opacity(0.3), lineWidth: 2)
             )
             .cornerRadius(20)
         }
@@ -385,89 +343,103 @@ extension ContentView {
 }
 
 ////////////////////////////////////////////////////////////
-// MARK: - TIMER + NOTIFICATION
+// MARK: - TIMER ENGINE + AUDIO
 ////////////////////////////////////////////////////////////
 
 extension ContentView {
     
-    func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { success, error in
-            if success {
-                print("Izin diberikan")
-            } else if let error = error {
-                print(error.localizedDescription)
-            }
-        }
-    }
-    
     func startTimer() {
-        // Reset state
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        
         isAlarmActive = false
         timeRemaining = boilingTime
         isRunning = true
         
-        // Simpan kapan timer seharusnya berakhir untuk antisipasi background mode
         expiryDate = Date().addingTimeInterval(TimeInterval(boilingTime))
         
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if timeRemaining > 0 {
-                timeRemaining -= 1
-            } else {
-                timerFinished()
+            DispatchQueue.main.async {
+                if timeRemaining > 0 {
+                    timeRemaining -= 1
+                } else {
+                    timeRemaining = 0
+                    timerFinished()
+                }
             }
         }
         
-        // Jadwalkan notifikasi tepat saat timer habis
         scheduleNotification(in: TimeInterval(boilingTime))
+    }
+    
+    func syncWithRealTime() {
+        guard let expiry = expiryDate,
+              isRunning,
+              !isAlarmActive else { return }
+        
+        let remaining = Int(expiry.timeIntervalSinceNow)
+        
+        if remaining <= 0 {
+            timeRemaining = 0
+            timerFinished()
+        } else {
+            timeRemaining = remaining
+        }
     }
     
     func timerFinished() {
         timer?.invalidate()
-        isAlarmActive = true // Aktifkan mode alarm (muncul tombol stop)
+        timer = nil
+        isAlarmActive = true
         playAlarmSound()
-    }
-    
-    func playAlarmSound() {
-        guard let url = Bundle.main.url(forResource: "alarm_sound", withExtension: "mp3") else {
-            print("Error: File alarm_sound.mp3 tidak ditemukan di project!")
-            return
-        }
-        
-        do {
-            // PENTING: Gunakan kategori .playback agar tetap bunyi di mode silent/background
-            try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default, options: [.duckOthers])
-            try AVAudioSession.sharedInstance().setActive(true)
-            
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.numberOfLoops = -1 // Terus mengulang
-            audioPlayer?.prepareToPlay()    // Menyiapkan buffer audio
-            audioPlayer?.play()
-        } catch {
-            print("Gagal memutar audio: \(error.localizedDescription)")
-        }
     }
     
     func stopAlarm() {
         audioPlayer?.stop()
+        audioPlayer = nil
         isAlarmActive = false
-        isRunning = false // Kembali ke SetupView setelah stop
+        isRunning = false
     }
     
-    // Update fungsi notifikasi agar lebih akurat saat di minimize
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+    
     func scheduleNotification(in time: TimeInterval) {
         let content = UNMutableNotificationContent()
         content.title = "Timer Selesai ⏰"
         content.body = "Telur kamu sudah matang!"
         content.sound = .default
         
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, time), repeats: false)
-        let request = UNNotificationRequest(identifier: "BoiliT_Timer", content: content, trigger: trigger)
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: max(1, time),
+            repeats: false
+        )
+        
+        let request = UNNotificationRequest(
+            identifier: "BoiliT_Timer",
+            content: content,
+            trigger: trigger
+        )
         
         UNUserNotificationCenter.current().add(request)
     }
-}
-
-#Preview {
-    ContentView()
+    
+    func playAlarmSound() {
+        guard let url = Bundle.main.url(forResource: "alarm_sound", withExtension: "mp3") else { return }
+        
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.numberOfLoops = -1
+            audioPlayer?.prepareToPlay()
+            audioPlayer?.play()
+            
+        } catch {
+            print(error.localizedDescription)
+        }
+    }
 }
