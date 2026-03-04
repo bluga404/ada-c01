@@ -11,37 +11,63 @@ struct ContentView: View {
         case airMendidih
     }
     
+    enum EggType: String, CaseIterable {
+        case ayam = "Telur Ayam"
+        case puyuh = "Telur Puyuh"
+    }
+    
     enum EggDoneness: String, CaseIterable {
         case soft
         case medium
         case hard
+        
+        var imageName: String {
+            switch self {
+            case .soft: return "egg_soft"
+            case .medium: return "egg_medium"
+            case .hard: return "egg_hard"
+            }
+        }
     }
     
     // MARK: - STATES
     
     @State private var selectedWater: WaterType = .airBiasa
     @State private var selectedDoneness: EggDoneness = .soft
+    @State private var selectedEggType: EggType = .ayam
+    
     @State private var timeRemaining: Int = 0
     @State private var isRunning = false
     @State private var timer: Timer?
     
-    // MARK: - BOILING TIME LOGIC (SAMA SEPERTI SEBELUMNYA)
+    // MARK: - BOILING TIME
     
     var boilingTime: Int {
+        
+        var baseTime: Int
+        
         switch selectedWater {
+            
         case .airBiasa:
             switch selectedDoneness {
-            case .soft: return 1 * 6
-            case .medium: return 11 * 60
-            case .hard: return 14 * 60
+            case .soft: baseTime = 6 * 60
+            case .medium: baseTime = 11 * 60
+            case .hard: baseTime = 14 * 60
             }
+            
         case .airMendidih:
             switch selectedDoneness {
-            case .soft: return 6 * 60
-            case .medium: return 9 * 60
-            case .hard: return 12 * 60
+            case .soft: baseTime = 6 * 60
+            case .medium: baseTime = 9 * 60
+            case .hard: baseTime = 12 * 60
             }
         }
+        
+        if selectedEggType == .puyuh {
+            baseTime = baseTime / 2
+        }
+        
+        return baseTime
     }
     
     var formattedTime: String {
@@ -73,35 +99,42 @@ struct ContentView: View {
 extension ContentView {
     
     var setupView: some View {
-        ZStack(alignment: .top) {
+        
+        ZStack(alignment: .topTrailing) {
             
-            // Header Yellow
             Color.yellow
                 .ignoresSafeArea()
                 .frame(height: 220)
             
-            VStack(alignment: .leading) {
-                Spacer().frame(height: 60)
-                
-                Text("Set boiled details")
-                    .font(.title)
-                    .bold()
-                    .foregroundColor(.white)
-                
-                Text("Prepare eggs as you like!")
-                    .foregroundColor(.white.opacity(0.9))
-                
-                Spacer()
-            }
-            .padding(.horizontal)
-            
             VStack(spacing: 25) {
                 
-                Spacer().frame(height: 180)
+                Spacer().frame(height: 80)
                 
                 VStack(alignment: .leading, spacing: 25) {
                     
-                    // Water condition
+                    VStack(alignment: .leading) {
+                        Text("Set boiled details")
+                            .font(.title)
+                            .bold()
+                        
+                        Text("Prepare eggs as you like!")
+                            .foregroundColor(.gray)
+                    }
+                    
+                    // Egg Type
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Egg Type")
+                            .font(.headline)
+                        
+                        HStack(spacing: 15) {
+                            eggTypeButton(.ayam)
+                            eggTypeButton(.puyuh)
+                        }
+                    }
+                    
+                    // Water Condition
+                    
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Water condition")
                             .font(.headline)
@@ -112,7 +145,8 @@ extension ContentView {
                         }
                     }
                     
-                    // Egg Type
+                    // Egg Doneness
+                    
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Egg boiled type")
                             .font(.headline)
@@ -134,6 +168,15 @@ extension ContentView {
                 
                 bottomBar
             }
+            
+            // LOGO DI SUDUT KANAN ATAS
+            
+            Image("app_logo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 150, height: 150)
+                .padding(.top, 40)
+                .padding(.trailing, -20)
         }
     }
 }
@@ -187,6 +230,29 @@ extension ContentView {
 
 extension ContentView {
     
+    func eggTypeButton(_ type: EggType) -> some View {
+        Button {
+            selectedEggType = type
+        } label: {
+            Text(type.rawValue)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(
+                    selectedEggType == type ?
+                    Color.orange.opacity(0.2) :
+                    Color.gray.opacity(0.1)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15)
+                        .stroke(
+                            selectedEggType == type ? Color.orange : Color.gray.opacity(0.3),
+                            lineWidth: 1.5
+                        )
+                )
+                .cornerRadius(15)
+        }
+    }
+    
     func waterButton(_ type: WaterType, title: String) -> some View {
         Button {
             selectedWater = type
@@ -215,10 +281,11 @@ extension ContentView {
             selectedDoneness = level
         } label: {
             VStack(spacing: 10) {
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 50, height: 50)
-                    .shadow(radius: 4)
+                
+                Image(level.imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 60, height: 60)
                 
                 Text(title)
                     .bold()
@@ -270,7 +337,7 @@ extension ContentView {
 }
 
 ////////////////////////////////////////////////////////////
-// MARK: - TIMER LOGIC + NOTIFICATION
+// MARK: - TIMER + NOTIFICATION
 ////////////////////////////////////////////////////////////
 
 extension ContentView {
