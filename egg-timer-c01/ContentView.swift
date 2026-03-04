@@ -436,7 +436,7 @@ extension ContentView {
         
         do {
             // PENTING: Gunakan kategori .playback agar tetap bunyi di mode silent/background
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.duckOthers])
+            try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default, options: [.duckOthers])
             try AVAudioSession.sharedInstance().setActive(true)
             
             audioPlayer = try AVAudioPlayer(contentsOf: url)
