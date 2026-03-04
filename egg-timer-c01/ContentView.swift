@@ -4,6 +4,9 @@ import AVFoundation
 
 struct ContentView: View {
     
+    // MARK: - ENVIRONMENT
+    @Environment(\.scenePhase) var scenePhase
+    
     // MARK: - ENUMS
     
     enum WaterType: String, CaseIterable {
@@ -24,14 +27,16 @@ struct ContentView: View {
     @State private var timeRemaining: Int = 0
     @State private var isRunning = false
     @State private var timer: Timer?
+    @State private var showAlert = false
+    @State private var endDate: Date?
     
-    // MARK: - BOILING TIME LOGIC (SAMA SEPERTI SEBELUMNYA)
+    // MARK: - BOILING TIME
     
     var boilingTime: Int {
         switch selectedWater {
         case .airBiasa:
             switch selectedDoneness {
-            case .soft: return 1 * 6
+            case .soft: return 1 * 20
             case .medium: return 11 * 60
             case .hard: return 14 * 60
             }
@@ -60,22 +65,34 @@ struct ContentView: View {
                 setupView
             }
         }
+        .alert("Timer Selesai ⏰", isPresented: $showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Telur kamu sudah matang!")
+        }
         .onAppear {
             requestNotificationPermission()
+        }
+        .onChange(of: scenePhase) { newPhase in
+            
+            if newPhase == .background && isRunning {
+                scheduleNotification()
+            }
+            
+            if newPhase == .active && isRunning {
+                updateRemainingTime()
+            }
         }
     }
 }
 
-////////////////////////////////////////////////////////////
 // MARK: - SETUP VIEW
-////////////////////////////////////////////////////////////
 
 extension ContentView {
     
     var setupView: some View {
         ZStack(alignment: .top) {
             
-            // Header Yellow
             Color.yellow
                 .ignoresSafeArea()
                 .frame(height: 220)
@@ -89,7 +106,7 @@ extension ContentView {
                     .foregroundColor(.white)
                 
                 Text("Prepare eggs as you like!")
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(.white)
                 
                 Spacer()
             }
@@ -101,7 +118,6 @@ extension ContentView {
                 
                 VStack(alignment: .leading, spacing: 25) {
                     
-                    // Water condition
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Water condition")
                             .font(.headline)
@@ -112,7 +128,6 @@ extension ContentView {
                         }
                     }
                     
-                    // Egg Type
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Egg boiled type")
                             .font(.headline)
@@ -138,9 +153,7 @@ extension ContentView {
     }
 }
 
-////////////////////////////////////////////////////////////
 // MARK: - TIMER VIEW
-////////////////////////////////////////////////////////////
 
 extension ContentView {
     
@@ -163,8 +176,7 @@ extension ContentView {
             Spacer()
             
             Button {
-                timer?.invalidate()
-                isRunning = false
+                stopTimer()
             } label: {
                 Image(systemName: "pause.fill")
                     .foregroundColor(.white)
@@ -181,9 +193,7 @@ extension ContentView {
     }
 }
 
-////////////////////////////////////////////////////////////
 // MARK: - COMPONENTS
-////////////////////////////////////////////////////////////
 
 extension ContentView {
     
@@ -249,8 +259,9 @@ extension ContentView {
                     .foregroundColor(.gray)
                 
                 Text("\(boilingTime / 60):00 Min")
-                    .font(.title2)
-                    .bold()
+                        .font(.title2)
+                        .bold()
+                        .foregroundColor(.black)
             }
             
             Spacer()
@@ -269,44 +280,82 @@ extension ContentView {
     }
 }
 
-////////////////////////////////////////////////////////////
-// MARK: - TIMER LOGIC + NOTIFICATION
-////////////////////////////////////////////////////////////
+// MARK: - TIMER LOGIC
 
 extension ContentView {
     
     func startTimer() {
+        endDate = Date().addingTimeInterval(TimeInterval(boilingTime))
         timeRemaining = boilingTime
         isRunning = true
         
         timer?.invalidate()
         
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if timeRemaining > 0 {
-                timeRemaining -= 1
-            } else {
-                timer?.invalidate()
-                isRunning = false
-                scheduleNotification()
-                playAlarmSound()
-            }
+            updateRemainingTime()
         }
     }
     
+    func updateRemainingTime() {
+        guard let endDate = endDate else { return }
+        
+        let remaining = max(0, Int(ceil(endDate.timeIntervalSinceNow)))
+        
+        if remaining > 0 {
+            timeRemaining = remaining
+        } else {
+            timer?.invalidate()
+            timerFinished()
+        }
+    }
+    
+    func stopTimer() {
+        timer?.invalidate()
+        isRunning = false
+        endDate = nil
+        
+        UNUserNotificationCenter.current()
+            .removeAllPendingNotificationRequests()
+    }
+    
+    func timerFinished() {
+        isRunning = false
+        endDate = nil
+        
+        if scenePhase == .active {
+            showAlert = true
+            playAlarmSound()
+        }
+    }
+}
+
+// MARK: - NOTIFICATION
+
+extension ContentView {
+    
     func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
     
     func scheduleNotification() {
+        guard let endDate = endDate else { return }
+        
+        let remaining = endDate.timeIntervalSinceNow
+        if remaining <= 0 { return }
+        
         let content = UNMutableNotificationContent()
         content.title = "Timer Selesai ⏰"
         content.body = "Telur kamu sudah matang!"
-        content.sound = .default
+        content.sound = UNNotificationSound(named: UNNotificationSoundName("alarm.wav"))
         
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: remaining,
+            repeats: false
+        )
         
         let request = UNNotificationRequest(
-            identifier: UUID().uuidString,
+            identifier: "EggTimerNotification",
             content: content,
             trigger: trigger
         )
@@ -317,8 +366,4 @@ extension ContentView {
     func playAlarmSound() {
         AudioServicesPlaySystemSound(1005)
     }
-}
-
-#Preview {
-    ContentView()
 }
